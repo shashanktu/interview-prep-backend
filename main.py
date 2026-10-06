@@ -124,12 +124,12 @@ async def create_interview_candidate(
     file: UploadFile | None = File(None)       # Candidate resume (optional)
 ):
     # Validate that the JD exists for the given role
-    jd = search_jd_by_role(role)
-    if not jd:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No Job Description found for role: {role}"
-        )
+    # jd = search_jd_by_role(role)
+    # if not jd:
+    #     raise HTTPException(
+    #         status_code=404,
+    #         detail=f"No Job Description found for role: {role}"
+    #     )
     
     result= await upload_blob(file=file,folder_name=f"{candidate_name}/Resume")
 
