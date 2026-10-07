@@ -1,8 +1,10 @@
 from azure.storage.blob import ContainerClient
 from urllib.parse import urlparse
-
+# load env file
+import os
+CONTAINER_SAS_URL=os.getenv("CONTAINER_SAS_URL")
 # from utils.config import CONTAINER_SAS_URL
-CONTAINER_SAS_URL = "https://devopsmafsa.blob.core.windows.net/agents?sp=racwl&st=2026-09-02T06:52:04Z&se=2027-02-04T15:07:04Z&spr=https&sv=2026-02-06&sr=c&sig=J5alsvFOMXahFhJd4HRVC2Ck95HpUpJ5XZlrtbnQOAc%3D"
+
 
 
 from azure.storage.blob import ContainerClient

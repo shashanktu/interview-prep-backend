@@ -213,7 +213,7 @@ async def get_jds():
 from list_blobs import get_files_from_blob
 @app.get("/list_blobs")
 async def list_blobs():
-    return {"files": get_files_from_blob("JD/")}
+    return {"files": get_files_from_blob("JDs/")}
 
 
 @app.post("/api/save-mapping")
