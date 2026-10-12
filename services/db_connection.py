@@ -24,8 +24,28 @@ SessionLocal = sessionmaker(
 )
 
 
-def get_db_connection():
-    return SessionLocal()
+from models.models import JD, Interview, User
+
+
+
+def insert_user(user: User):
+    db = get_db_connection()
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+def search_user_by_email(email: str):
+    db = get_db_connection()
+    return db.query(User).filter(User.associate_email == email).one_or_none()
+
+
+
+
+
+
+# def get_db_connection():
+#     return SessionLocal()
 
 
 def insert_interview(interview: Interview):
@@ -72,3 +92,16 @@ def search_jd_resume(interview_id):
 def search_all_jds():
     db = get_db_connection()
     return db.query(JD.role).all()
+
+def get_resume_link(
+    interview_id
+):
+    db = get_db_connection()
+    result = (
+        db.query(Interview.resume_path,
+        Interview.role
+)
+        .filter(Interview.interview_id == interview_id)
+        .one_or_none()
+    )
+    return result

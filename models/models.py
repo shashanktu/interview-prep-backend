@@ -13,7 +13,10 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     associate_name = Column(String(255), nullable=False)
-    role = Column(String(255), nullable=False)
+    vam_id = Column(String(255), nullable=False, unique=True)
+    associate_email = Column(String(255), nullable=False, unique=True)
+    associate_password = Column(String(255), nullable=False)
+    associate_role = Column(String(255), nullable=False)
     created_at = Column(Date, default=func.current_date(), nullable=False)
     created_time = Column(Time, default=func.current_time(), nullable=False)
 
@@ -36,7 +39,7 @@ class Interview(Base):
     candidate_name = Column(String(255), nullable=False)
     candidate_email = Column(String(255), nullable=False, unique=True)
     tsc = Column(String(255), nullable=False)
-    role = Column(String(255), ForeignKey("jd.role"), nullable=False)
+    role = Column(String(255), nullable=False)
     l2_panel = Column(String(255), nullable=True)
     l2_email = Column(String(255), nullable=True)
     level = Column(String(50), nullable=True)

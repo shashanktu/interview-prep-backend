@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Literal
-from services.db_connection import insert_jd,Base, engine,search_jd_by_role, insert_interview,search_jd_resume,search_all_jds
+from services.db_connection import insert_jd,Base, engine,search_jd_by_role, insert_interview,search_jd_resume,search_all_jds,get_resume_link,insert_user,search_user_by_email
 from models.models import JD, Interview , User
 from services.database import engine, Base
 from utils.upload_files import upload_blob
@@ -9,9 +9,12 @@ from utils.email_service import send_interview_email
 from utils.read_blob import extract_pdf_text
 from utils.prompts import get_questions
 Base.metadata.create_all(bind=engine)
-
+from face_detection import router as face_router
+from interview_transcript import router as audio_router
 
 app = FastAPI()
+app.include_router(face_router)
+app.include_router(audio_router)
 from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
@@ -131,7 +134,7 @@ async def create_interview_candidate(
     #         detail=f"No Job Description found for role: {role}"
     #     )
     
-    result= await upload_blob(file=file,folder_name=f"{candidate_name}/Resume")
+    result= await upload_blob(file=file,folder_name=f"candidates/{candidate_name}/Resume")
 
     resume_path = result['url'] if file else None
     print(f"Uploaded jd {jd_name}")
@@ -178,16 +181,20 @@ async def test_azure():
 
 @app.get("/generate-questions/{interview_id}")
 async def generate_questions(interview_id: str):
-    result = search_jd_resume(interview_id)
-    if (result.jd_path is None) or (result.resume_path is None):
-        return {"error": "No matching JD or resume found."}
-    jd_text = extract_pdf_text(result.jd_path)
-    resume_text = extract_pdf_text(result.resume_path)
-    questions=get_questions(jd=jd_text, resume=resume_text)
-    return {
-        "interview_id": interview_id,
-        "questions": questions
-    }
+    resume_link=get_resume_link(interview_id)
+    
+
+    
+    resume_dict = dict(resume_link._mapping)
+    print(f"Resume link: {resume_dict}")
+
+    return resume_dict
+    # resume_text = extract_pdf_text(resume_link)
+    # questions=get_questions(jd=jd_text, resume=resume_text)
+    # return {
+    #     "interview_id": interview_id,
+    #     "questions": questions
+    # }
 
 
 # @app.put("/update-interview/{interview_id}")
@@ -222,99 +229,102 @@ async def save_mapping(payload: SaveMappingRequest | list[SaveMappingRequest]):
         return {"mappings": [m.model_dump() for m in payload]}
     return payload.model_dump()
 
-@app.post("/media/{interview_id}")
-async def upload_interview_media(
-    interview_id: int,
-    media_types: List[
-        Literal[
-            "aadhar",
-            "selfie",
-            "video",
-            "transcription"
-        ]
-    ] = Form(...),
-    files: List[UploadFile] = File(...)
-):
 
-    if len(files) != len(media_types):
+
+
+
+
+import uuid
+import bcrypt
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+
+class UserCreateRequest(BaseModel):
+    vam_id: str | None = None
+    associate_name: str
+    associate_email: str
+    associate_password: str
+    associate_role: str
+
+class UserResponse(BaseModel):
+    id: int
+    associate_name: str
+    vam_id: str
+    associate_email: str
+    associate_role: str
+    message: str
+
+@app.post("/users", response_model=UserResponse)
+async def create_user(payload: UserCreateRequest):
+    existing_user = search_user_by_email(payload.associate_email)
+    if existing_user:
         raise HTTPException(
             status_code=400,
-            detail="Number of files must match number of media types"
+            detail=f"User with email '{payload.associate_email}' already exists."
         )
 
-    allowed_types = {
-        "aadhar": {
-            "image/jpeg",
-            "image/png",
-            "application/pdf"
-        },
-        "selfie": {
-            "image/jpeg",
-            "image/png"
-        },
-        "video": {
-            "video/mp4",
-            "video/webm",
-            "video/quicktime"
-        },
-        "transcription": {
-            "text/plain",
-            "application/json",
-            "text/vtt"
-        }
-    }
+    hashed_password = hash_password(payload.associate_password)
 
-    uploaded_files = []
+    user = User(
+        associate_name=payload.associate_name,
+        vam_id=payload.vam_id or f"VAM-{uuid.uuid4().hex[:8].upper()}",
+        associate_email=payload.associate_email,
+        associate_password=hashed_password,
+        associate_role=payload.associate_role
+    )
 
-    for file, media_type in zip(files, media_types):
+    created_user = insert_user(user)
 
-        if not file.filename:
-            raise HTTPException(
-                status_code=400,
-                detail="Filename is missing"
-            )
+    return UserResponse(
+        id=created_user.id,
+        associate_name=created_user.associate_name,
+        vam_id=created_user.vam_id,
+        associate_email=created_user.associate_email,
+        associate_role=created_user.associate_role,
+        message="User created successfully"
+    )
 
-        if file.content_type not in allowed_types[media_type]:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Invalid file type for {media_type}: "
-                    f"{file.content_type}"
-                )
-            )
 
-        # ----------------------------------------
-        # YOUR STORAGE LOGIC
-        # ----------------------------------------
 
-        # blob_path = await upload_to_blob(
-        #     interview_id=interview_id,
-        #     media_type=media_type,
-        #     file=file
-        # )
 
-        blob_path = None
 
-        # ----------------------------------------
-        # YOUR DB LOGIC
-        # ----------------------------------------
+class UserLoginRequest(BaseModel):
+    associate_email: str
+    associate_password: str
 
-        # interview_details.<media_type>_path = blob_path
+class UserLoginResponse(BaseModel):
+    id: int
+    associate_name: str
+    vam_id: str
+    associate_email: str
+    associate_role: str
+    message: str
 
-        uploaded_files.append({
-            "media_type": media_type,
-            "filename": file.filename,
-            "content_type": file.content_type,
-            "blob_path": blob_path
-        })
+@app.post("/login", response_model=UserLoginResponse)
+async def login_user(payload: UserLoginRequest):
+    user = search_user_by_email(payload.associate_email)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
 
-    return {
-        "message": "Media uploaded successfully",
-        "interview_id": interview_id,
-        "files": uploaded_files
-    }
+    if not verify_password(payload.associate_password, user.associate_password):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid email or password"
+        )
 
-@app.post("/end_interview/{interview_id}")
-async def end_interview(interview_id: str):
-    # Logic to end the interview
-    return {"message": "Interview ended successfully"}
+    return UserLoginResponse(
+        id=user.id,
+        associate_name=user.associate_name,
+        vam_id=user.vam_id,
+        associate_email=user.associate_email,
+        associate_role=user.associate_role,
+        message="Login successful"
+    )
+
+
