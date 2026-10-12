@@ -1,10 +1,16 @@
 from sqlalchemy import Column, Integer, String, Date, Time, func, Text, ForeignKey
 from services.database import Base
 import uuid
-
+import enum
 
 def generate_interview_id():
     return f"VAM-{uuid.uuid4().hex[:8].upper()}"
+
+class SessionStatus(str, enum.Enum):
+    Active = "Active"
+    Completed = "Completed"
+    Expired = "Expired"
+    Scheduled = "Scheduled"
 
 
 
@@ -40,6 +46,7 @@ class Interview(Base):
     candidate_email = Column(String(255), nullable=False, unique=True)
     tsc = Column(String(255), nullable=False)
     role = Column(String(255), nullable=False)
+    status= Column(String(50), nullable=False,default=SessionStatus.Scheduled.value)
     l2_panel = Column(String(255), nullable=True)
     l2_email = Column(String(255), nullable=True)
     level = Column(String(50), nullable=True)
