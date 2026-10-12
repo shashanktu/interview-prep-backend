@@ -7,6 +7,7 @@ def get_questions(jd, resume):
     - Follow the proper format for each question.
     -Following are the Job Description (JD) and Resume
     - Reminder it is a live interview and not a written test. So, the questions should be designed to assess the candidate's practical knowledge and problem-solving abilities in a real-world context.
+    - Generate 5 Questions each from Job Description and 5 from Resume.
     Job Description:
     {jd}
 

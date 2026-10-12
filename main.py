@@ -11,10 +11,11 @@ from utils.prompts import get_questions
 Base.metadata.create_all(bind=engine)
 from face_detection import router as face_router
 from interview_transcript import router as audio_router
-
+from interview_enpoints import router as interview_router
 app = FastAPI()
 app.include_router(face_router)
 app.include_router(audio_router)
+app.include_router(interview_router)
 from fastapi.middleware.cors import CORSMiddleware
 
 app.add_middleware(
@@ -126,13 +127,7 @@ async def create_interview_candidate(
     tsc: str = Form(...),
     file: UploadFile | None = File(None)       # Candidate resume (optional)
 ):
-    # Validate that the JD exists for the given role
-    # jd = search_jd_by_role(role)
-    # if not jd:
-    #     raise HTTPException(
-    #         status_code=404,
-    #         detail=f"No Job Description found for role: {role}"
-    #     )
+   
     
     result= await upload_blob(file=file,folder_name=f"candidates/{candidate_name}/Resume")
 
@@ -189,25 +184,7 @@ async def generate_questions(interview_id: str):
     print(f"Resume link: {resume_dict}")
 
     return resume_dict
-    # resume_text = extract_pdf_text(resume_link)
-    # questions=get_questions(jd=jd_text, resume=resume_text)
-    # return {
-    #     "interview_id": interview_id,
-    #     "questions": questions
-    # }
-
-
-# @app.put("/update-interview/{interview_id}")
-# async def update_interview(interview_id: str,):
-#     # Validate that the interview exists
-#     existing_interview = search_interview_by_id(interview_id)
-#     if not existing_interview:
-#         raise HTTPException(
-#             status_code=404,
-#             detail=f"No interview found with ID: {interview_id}"
-#         )
-#     return {"message": "Interview updated successfully"}
-
+   
 
 
 @app.get("/get_jds")

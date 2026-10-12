@@ -99,7 +99,7 @@ def get_resume_link(
     db = get_db_connection()
     result = (
         db.query(Interview.resume_path,
-        Interview.role
+        Interview.jd_name
 )
         .filter(Interview.interview_id == interview_id)
         .one_or_none()

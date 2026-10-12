@@ -1,14 +1,13 @@
 from azure.storage.blob import ContainerClient
 from urllib.parse import urlparse
 # load env file
+from dotenv import load_dotenv
+
+load_dotenv()
 import os
+
 CONTAINER_SAS_URL=os.getenv("CONTAINER_SAS_URL")
 # from utils.config import CONTAINER_SAS_URL
-
-
-
-from azure.storage.blob import ContainerClient
-from urllib.parse import urlparse
 
 def get_files_from_blob(folder_path: str):
 
@@ -64,3 +63,34 @@ def get_files_from_blob(folder_path: str):
 #         })
 
 #     return files
+
+
+from azure.storage.blob import ContainerClient
+
+
+def find_blob_url(file_name: str) -> str | None:
+    # sas_url must be the container URL with its SAS token
+    container_client = ContainerClient.from_container_url(CONTAINER_SAS_URL)
+
+    for blob in container_client.list_blobs():
+        # Match the filename, including files inside folders
+        if blob.name.split("/")[-1] == file_name:
+            blob_client = container_client.get_blob_client(blob.name)
+
+            # Return the complete URL, including the SAS token
+            return blob_client.url
+
+    return None
+
+
+
+# print(CONTAINER_SAS_URL)
+# url = find_blob_url(
+#     sas_url=CONTAINER_SAS_URL,
+#     file_name="AI Solutions Architect JD.docx"
+# )
+
+# if url:
+#     print("Blob SAS URL:", url)
+# else:
+#     print("File not found")
