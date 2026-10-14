@@ -124,3 +124,9 @@ def get_interview_questions_db(interview_id: str):
     db = get_db_connection()
     result = db.query(InterviewMetadata).filter(InterviewMetadata.interview_id == interview_id).all()
     return result
+
+
+def get_interview_data(interview_id: str):
+    db = get_db_connection()
+    result = db.query(Interview).filter(Interview.interview_id == interview_id).one_or_none()
+    return result

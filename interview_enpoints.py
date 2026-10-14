@@ -2,7 +2,7 @@ import uuid
 from fastapi import APIRouter,HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect
 from list_blobs import find_blob_url
 from utils.upload_files import upload_blob
-from services.db_connection import get_resume_link,update_interview_status,get_interview_status,get_interview_questions_db
+from services.db_connection import get_resume_link,update_interview_status,get_interview_status,get_interview_questions_db,get_interview_data
 from utils.read_blob import extract_pdf_text
 from utils.prompts import get_questions
 from models.models import InterviewMetadata
@@ -17,6 +17,11 @@ def generate_questions(resume_path,jd_path):
     questions=get_questions(jd=jd_text, resume=resume_text)
     #logic to generate questions
     return questions
+
+@router.get("/get-interview-details/{interview_id}")
+async def get_interview_details(interview_id: str):
+    result = get_interview_data(interview_id)
+    return {"data": result}
 
 @router.post("/start-interview/{interview_id}")
 async def start_interview(interview_id: str):
