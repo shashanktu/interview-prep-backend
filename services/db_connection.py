@@ -1,6 +1,6 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
-from models.models import JD, Interview
+from models.models import JD, Interview, User, InterviewMetadata
 from utils.config import DB_URL
 
 # Database connection logic here
@@ -41,13 +41,6 @@ def search_user_by_email(email: str):
 
 
 
-
-
-
-# def get_db_connection():
-#     return SessionLocal()
-
-
 def insert_interview(interview: Interview):
     db = get_db_connection()
     db.add(interview)
@@ -56,11 +49,8 @@ def insert_interview(interview: Interview):
     return interview
 
 
-
-
 def insert_jd(jd):
     db = get_db_connection()
-    # Assuming you have a JD model defined
     db.add(jd)
     db.commit()
     db.refresh(jd)
@@ -104,4 +94,33 @@ def get_resume_link(
         .filter(Interview.interview_id == interview_id)
         .one_or_none()
     )
+    return result
+
+
+def get_interview_status(interview_id: str):
+    db = get_db_connection()
+    interview = db.query(Interview).filter(Interview.interview_id == interview_id).one_or_none()
+    return interview.status if interview else None
+
+#function to change the status of the interview
+def update_interview_status(interview_id: str,status:str):
+    db = get_db_connection()
+    interview = db.query(Interview).filter(Interview.interview_id == interview_id).one_or_none()
+    if not interview:
+        return None
+    interview.status = status
+    db.commit()
+    return interview
+
+def insert_metadata(metadata: InterviewMetadata):
+    db = get_db_connection()
+    db.add(metadata)
+    db.commit()
+    db.refresh(metadata)
+    return metadata
+
+
+def get_interview_questions_db(interview_id: str):
+    db = get_db_connection()
+    result = db.query(InterviewMetadata).filter(InterviewMetadata.interview_id == interview_id).all()
     return result

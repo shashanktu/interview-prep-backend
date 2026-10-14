@@ -1,8 +1,8 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Literal
-from services.db_connection import insert_jd,Base, engine,search_jd_by_role, insert_interview,search_jd_resume,search_all_jds,get_resume_link,insert_user,search_user_by_email
-from models.models import JD, Interview , User
+from services.db_connection import insert_jd,Base, engine,search_jd_by_role, insert_interview,search_jd_resume,search_all_jds,get_resume_link,insert_user,search_user_by_email,insert_metadata
+from models.models import JD, Interview , User, InterviewMetadata
 from services.database import engine, Base
 from utils.upload_files import upload_blob
 from utils.email_service import send_interview_email
@@ -113,10 +113,108 @@ async def upload_file(
 
 
 
+"""Working code """
+# @app.post("/interview-candidate", response_model=InterviewResponse)
+# async def create_interview_candidate(
+#     user_id: int = Form(...),                  # Logged-in HR user ID
+#     candidate_name: str = Form(...),
+#     candidate_email: str = Form(...),
+#     l2_panel: str = Form(...),
+#     l2_email: str = Form(...),
+#     level: str = Form(...),
+#     jd_name: str = Form(...),
+#     role: str = Form(...),
+#     tsc: str = Form(...),
+#     file: UploadFile | None = File(None)       # Candidate resume (optional)
+# ):
+   
+    
+#     result= await upload_blob(file=file,folder_name=f"candidates/{candidate_name}/Resume")
+
+#     resume_path = result['url'] if file else None
+#     print(f"Uploaded jd {jd_name}")
+#     interview = Interview(
+#         user_id=user_id,
+#         candidate_name=candidate_name,
+#         candidate_email=candidate_email,
+#         role=role,
+#         tsc=tsc,
+#         l2_panel=l2_panel,
+#         l2_email=l2_email,
+#         level=level,
+#         jd_name=jd_name,
+#         resume_path=resume_path,
+#         l1_status="Pending",
+#         l2_status="Pending"
+#     )
+
+#     created_interview = insert_interview(interview)
+#     result=send_interview_email(
+#         candidate_email=candidate_email,
+#         candidate_name=candidate_name,
+#         interview_link="https://example.com/interview",
+#         interview_id=created_interview.interview_id,
+#         role=role
+#     )
+
+#     print(f"Email sent successfully: {result}")
+
+#     return InterviewResponse(
+#         interview_id=created_interview.interview_id,
+#         candidate_name=created_interview.candidate_name,
+#         candidate_email=created_interview.candidate_email,
+#         tsc=created_interview.tsc,
+#         role=created_interview.role,
+#         resume_path=created_interview.resume_path,
+#         message="Interview created successfully"
+#     )
+# from services.llm_connection import get_azure_response
+# @app.get("/test-azure")
+# async def test_azure():
+#     result = get_azure_response("HI")
+#     return {"result": result}
+
+# @app.get("/generate-questions/{interview_id}")
+# async def generate_questions(interview_id: str):
+#     resume_link=get_resume_link(interview_id) 
+#     resume_dict = dict(resume_link._mapping)
+#     print(f"Resume link: {resume_dict}")
+
+#     return resume_dict
+   
+
+
+# @app.get("/get_jds")
+# async def get_jds():
+#     jds = search_all_jds()
+#     print(jds[0])
+#     return {"jds": [jd.role for jd in jds]}
+
+
+# from list_blobs import get_files_from_blob
+# @app.get("/list_blobs")
+# async def list_blobs():
+#     return {"files": get_files_from_blob("JDs/")}
+
+
+# @app.post("/api/save-mapping")
+# async def save_mapping(payload: SaveMappingRequest | list[SaveMappingRequest]):
+#     if isinstance(payload, list):
+#         return {"mappings": [m.model_dump() for m in payload]}
+#     return payload.model_dump()
+
+
+
+from fastapi import APIRouter, BackgroundTasks, Form, File, UploadFile, HTTPException
+from starlette.concurrency import run_in_threadpool
+
+router = APIRouter()
+
 
 @app.post("/interview-candidate", response_model=InterviewResponse)
 async def create_interview_candidate(
-    user_id: int = Form(...),                  # Logged-in HR user ID
+    background_tasks: BackgroundTasks,
+    user_id: int = Form(...),
     candidate_name: str = Form(...),
     candidate_email: str = Form(...),
     l2_panel: str = Form(...),
@@ -125,14 +223,19 @@ async def create_interview_candidate(
     jd_name: str = Form(...),
     role: str = Form(...),
     tsc: str = Form(...),
-    file: UploadFile | None = File(None)       # Candidate resume (optional)
+    file: UploadFile | None = File(None),
 ):
-   
-    
-    result= await upload_blob(file=file,folder_name=f"candidates/{candidate_name}/Resume")
+    # 1. Upload the resume only if one was provided
+    resume_path = None
 
-    resume_path = result['url'] if file else None
-    print(f"Uploaded jd {jd_name}")
+    if file and file.filename:
+        upload_result = await upload_blob(
+            file=file,
+            folder_name=f"candidates/{candidate_name}/Resume",
+        )
+        resume_path = upload_result["url"]
+
+    # 2. Create the interview record
     interview = Interview(
         user_id=user_id,
         candidate_name=candidate_name,
@@ -145,19 +248,24 @@ async def create_interview_candidate(
         jd_name=jd_name,
         resume_path=resume_path,
         l1_status="Pending",
-        l2_status="Pending"
+        l2_status="Pending",
+        
     )
 
-    created_interview = insert_interview(interview)
-    result=send_interview_email(
-        candidate_email=candidate_email,
-        candidate_name=candidate_name,
-        interview_link="https://example.com/interview",
+    created_interview = await run_in_threadpool(
+        insert_interview, interview
+    )
+
+    # 3. Start preparation without making TAG wait for AI
+    background_tasks.add_task(
+        prepare_interview,
         interview_id=created_interview.interview_id,
-        role=role
+        candidate_name=candidate_name,
+        candidate_email=candidate_email,
+        role=role,
+        jd_name=jd_name,
+        resume_path=resume_path,
     )
-
-    print(f"Email sent successfully: {result}")
 
     return InterviewResponse(
         interview_id=created_interview.interview_id,
@@ -166,46 +274,70 @@ async def create_interview_candidate(
         tsc=created_interview.tsc,
         role=created_interview.role,
         resume_path=created_interview.resume_path,
-        message="Interview created successfully"
+        message="Interview created. Questions are being prepared.",
     )
-from services.llm_connection import get_azure_response
-@app.get("/test-azure")
-async def test_azure():
-    result = get_azure_response("HI")
-    return {"result": result}
-
-@app.get("/generate-questions/{interview_id}")
-async def generate_questions(interview_id: str):
-    resume_link=get_resume_link(interview_id)
-    
-
-    
-    resume_dict = dict(resume_link._mapping)
-    print(f"Resume link: {resume_dict}")
-
-    return resume_dict
-   
 
 
-@app.get("/get_jds")
-async def get_jds():
-    jds = search_all_jds()
-    print(jds[0])
-    return {"jds": [jd.role for jd in jds]}
+async def prepare_interview(
+    interview_id: str,
+    candidate_name: str,
+    candidate_email: str,
+    role: str,
+    jd_name: str,
+    resume_path: str | None,
+):
+    try:
+        # Mark preparation as processing
+        from list_blobs import find_blob_url
+        from utils.read_blob import extract_pdf_text
+        # 4. Read JD and resume text from Blob Storage
+        url=find_blob_url(jd_name)
+        print(f"JD URL: {url}/n=========================")
 
+        jd_text = await run_in_threadpool(extract_pdf_text, url)
 
-from list_blobs import get_files_from_blob
-@app.get("/list_blobs")
-async def list_blobs():
-    return {"files": get_files_from_blob("JDs/")}
+        if resume_path:
+            resume_text = await run_in_threadpool(extract_pdf_text, resume_path)
+        else:
+            resume_text = ""
+        from utils.prompts import get_questions
+        # 5. Generate structured questions using your LLM
+        questions = await run_in_threadpool(get_questions, jd_text, resume_text)
 
+        if not questions:
+            raise ValueError("Question generation returned no questions")
 
-@app.post("/api/save-mapping")
-async def save_mapping(payload: SaveMappingRequest | list[SaveMappingRequest]):
-    if isinstance(payload, list):
-        return {"mappings": [m.model_dump() for m in payload]}
-    return payload.model_dump()
+        # 6. Persist the complete question set before sending the invite
+        # await run_in_threadpool(
+        #     save_interview_questions,
+        #     interview_id,
+        #     questions,
+        # )
+        print("code after interview questions generated")
+        print(f"Interview questions saved successfully for {interview_id} with questions\n{questions}")
+        interview_metadata = InterviewMetadata(
+            interview_id=interview_id,
+            key="questions",
+            value=str(questions)
+        )
+        await run_in_threadpool(insert_metadata, interview_metadata)
 
+        # 7. Send the invitation only after questions are saved
+        email_result = await run_in_threadpool(
+            send_interview_email,
+            candidate_email=candidate_email,
+            candidate_name=candidate_name,
+            interview_link="https://valuemomentum.com/",
+            interview_id=interview_id,
+            role=role,
+        )
+
+        print(f"Email sent successfully: {email_result}")
+
+        print(f"Interview {interview_id} prepared and invite submitted")
+
+    except Exception as exc:
+        print(f"Interview preparation failed for {interview_id}: {exc}")
 
 
 

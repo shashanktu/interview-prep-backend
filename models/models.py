@@ -35,8 +35,6 @@ class JD(Base):
     path = Column(Text, nullable=False)
 
 
-
-
 class Interview(Base):
     __tablename__ = "interview"
 
@@ -56,3 +54,12 @@ class Interview(Base):
     l1_result = Column(String(50), nullable=True)
     l2_status = Column(String(50), nullable=True)
     l2_result = Column(String(50), nullable=True)
+
+
+class InterviewMetadata(Base):
+    __tablename__ = "interview_metadata"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    interview_id = Column(String, ForeignKey("interview.interview_id"), nullable=False)
+    key = Column(String(255), nullable=False)
+    value = Column(Text, nullable=False)
