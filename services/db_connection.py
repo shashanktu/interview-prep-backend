@@ -130,3 +130,41 @@ def get_interview_data(interview_id: str):
     db = get_db_connection()
     result = db.query(Interview).filter(Interview.interview_id == interview_id).one_or_none()
     return result
+
+
+
+def save_interview_feedback(interview_id: str, feedback: str):
+    db = get_db_connection()
+    interview = db.query(Interview).filter(Interview.interview_id == interview_id).one_or_none()
+    if not interview:
+        return None
+
+    interview.l1_result = feedback
+    db.commit()
+    db.refresh(interview)
+    return interview
+
+
+def get_jd_path(interview_id: str):
+    db = get_db_connection()
+    result = (
+        db.query(JD.path)
+        .join(Interview, Interview.role == JD.role)
+        .filter(Interview.interview_id == interview_id)
+        .one_or_none()
+    )
+    return result
+
+
+def update_interview(interview_id: str, **kwargs):
+    db = get_db_connection()
+    interview = db.query(Interview).filter(Interview.interview_id == interview_id).one_or_none()
+    if not interview:
+        return None
+    for key, value in kwargs.items():
+        setattr(interview, key, value)
+    db.commit()
+    db.refresh(interview)
+    return interview
+
+

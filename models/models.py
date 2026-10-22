@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, Date, Time, func, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, Time, func, Text, ForeignKey,DateTime
 from services.database import Base
 import uuid
 import enum
+import datetime
 
 def generate_interview_id():
     return f"VAM-{uuid.uuid4().hex[:8].upper()}"
@@ -54,6 +55,9 @@ class Interview(Base):
     l1_result = Column(String(50), nullable=True)
     l2_status = Column(String(50), nullable=True)
     l2_result = Column(String(50), nullable=True)
+    created_date = Column(DateTime, default=datetime.datetime.now, nullable=False)
+    end_date = Column(DateTime, nullable=True, default=lambda: datetime.datetime.now() + datetime.timedelta(days=2), nullable=False)
+    attempt_date = Column(DateTime, nullable=True)
 
 
 class InterviewMetadata(Base):
