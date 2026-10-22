@@ -185,7 +185,7 @@ async def start_interview(interview_id: str):
         else:
             raise HTTPException(status_code=400, detail="Interview is not in a scheduled state and cannot be started.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error starting interview: {str(e)}", message="Interview is not in a scheduled state and cannot be started.")
+        raise HTTPException(status_code=500, detail=f"Error starting interview: {str(e)}")
 
 
 
