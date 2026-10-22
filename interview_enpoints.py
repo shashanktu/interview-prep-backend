@@ -182,6 +182,8 @@ async def start_interview(interview_id: str):
             with open(f"{interview_id}_temp.txt", "w") as temp_file:
                 temp_file.write("")
             return {"message": "Interview started successfully"}
+        else:
+            raise HTTPException(status_code=400, detail="Interview is not in a scheduled state and cannot be started.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error starting interview: {str(e)}", message="Interview is not in a scheduled state and cannot be started.")
 
