@@ -56,7 +56,7 @@ class Interview(Base):
     l2_status = Column(String(50), nullable=True)
     l2_result = Column(String(50), nullable=True)
     created_date = Column(DateTime, default=datetime.datetime.now, nullable=False)
-    end_date = Column(DateTime, nullable=True, default=lambda: datetime.datetime.now() + datetime.timedelta(days=2), nullable=False)
+    end_date = Column(DateTime, default=lambda: datetime.datetime.now() + datetime.timedelta(days=2), nullable=False)
     attempt_date = Column(DateTime, nullable=True)
 
 
