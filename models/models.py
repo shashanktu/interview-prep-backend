@@ -49,7 +49,6 @@ class Interview(Base):
     jd_url=Column(String(255), nullable=True)
     status= Column(String(50), nullable=False,default=SessionStatus.Scheduled.value)
     path = Column(Text, nullable=False)
-    l2_panel = Column(String(255), nullable=True)
     l2_email = Column(String(255), nullable=True)
     level = Column(String(50), nullable=True)
     jd_name = Column(String(255), nullable=True)
