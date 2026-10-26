@@ -3,6 +3,7 @@ from services.database import Base
 import uuid
 import enum
 import datetime
+import numpy as n
 
 def generate_interview_id():
     return f"VAM-{uuid.uuid4().hex[:8].upper()}"
@@ -45,7 +46,9 @@ class Interview(Base):
     candidate_email = Column(String(255), nullable=False, unique=True)
     tsc = Column(String(255), nullable=False)
     role = Column(String(255), nullable=False)
+    jd_url=Column(String(255), nullable=True)
     status= Column(String(50), nullable=False,default=SessionStatus.Scheduled.value)
+    path = Column(Text, nullable=False)
     l2_panel = Column(String(255), nullable=True)
     l2_email = Column(String(255), nullable=True)
     level = Column(String(50), nullable=True)

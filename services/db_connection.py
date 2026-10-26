@@ -148,8 +148,7 @@ def save_interview_feedback(interview_id: str, feedback: str):
 def get_jd_path(interview_id: str):
     db = get_db_connection()
     result = (
-        db.query(JD.path)
-        .join(Interview, Interview.role == JD.role)
+        db.query(Interview.jd_url)
         .filter(Interview.interview_id == interview_id)
         .one_or_none()
     )

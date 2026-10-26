@@ -5,6 +5,7 @@ from utils.prompts import get_feedback
 def generate_and_save_feedback(
     interview_id: str,
     transcript: str,
+    jd:str
 ):
     try:
         print(f"Starting feedback generation for {interview_id}")
