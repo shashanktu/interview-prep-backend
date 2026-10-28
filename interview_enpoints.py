@@ -10,7 +10,9 @@ from utils.prompts import get_questions
 from models.models import InterviewMetadata
 from services.db_connection import insert_metadata
 from services.feedback import generate_and_save_feedback
+from face_detection import violation_tracker
 import datetime
+import json
 router=APIRouter(
     prefix="/interview",
     tags=["interview"]
@@ -272,6 +274,16 @@ async def end_interview(
             value="pending",
         )
         await run_in_threadpool(insert_metadata, feedback_status_metadata)
+
+        # 1b. Save the violation summary gathered during the interview
+        violation_summary = violation_tracker.get_summary(interview_id)
+        violation_metadata = InterviewMetadata(
+            interview_id=interview_id,
+            key="violation_summary",
+            value=json.dumps(violation_summary),
+        )
+        await run_in_threadpool(insert_metadata, violation_metadata)
+        violation_tracker.clear(interview_id)
 
         # 2. Mark the interview as completed
         await run_in_threadpool(

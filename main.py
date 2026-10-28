@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Literal
-from services.db_connection import insert_jd,Base, engine,search_jd_by_role, insert_interview,search_jd_resume,search_all_jds,get_resume_link,insert_user,search_user_by_email,insert_metadata
+from services.db_connection import insert_jd,Base, engine,search_jd_by_role, insert_interview,search_jd_resume,search_all_jds,get_resume_link,insert_user,search_user_by_email,insert_metadata,get_all_interviews_from_db,get_interview_data
 from models.models import JD, Interview , User, InterviewMetadata
 from services.database import engine, Base
 from utils.upload_files import upload_blob
@@ -439,3 +439,15 @@ async def login_user(payload: UserLoginRequest):
     )
 
 
+@app.get("/get-all-interviews/")
+async def get_all_interviews():
+    interviews = get_all_interviews_from_db()
+    return {"interviews": interviews}
+
+
+@app.get("/get-interview-details/{interview_id}")
+async def get_interview_details(interview_id: str):
+    interview = get_interview_data(interview_id)
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview not found")
+    return {"interview": interview}

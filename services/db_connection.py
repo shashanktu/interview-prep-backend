@@ -167,3 +167,26 @@ def update_interview(interview_id: str, **kwargs):
     return interview
 
 
+def get_all_interviews_from_db():
+    db = get_db_connection()
+    return db.query(Interview).all()
+
+
+
+
+def get_interview_data(interview_id: str):
+    db = get_db_connection()
+    interview = db.query(Interview).filter(Interview.interview_id == interview_id).one_or_none()
+    if not interview:
+        return None
+
+    metadata = (
+        db.query(InterviewMetadata)
+        .filter(InterviewMetadata.interview_id == interview_id)
+        .all()
+    )
+
+    return {
+        "interview": interview,
+        "metadata": metadata
+    }

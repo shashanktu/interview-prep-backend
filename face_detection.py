@@ -8,6 +8,7 @@ from mediapipe.tasks.python import vision
 from fastapi import Query
 import json
 import io
+import time
 from faster_whisper import WhisperModel
 import numpy as np_audio
 from classify import classify_gaze_binary
@@ -18,8 +19,105 @@ router=APIRouter(
     tags=["face"]
 )
 
-calibration_store: dict = {}   # session_id -> list of blendshape dicts
-session_thresholds: dict = {}  # session_id -> computed thresholds
+calibration_store: dict = {}   # interview_id -> list of blendshape dicts
+session_thresholds: dict = {}  # interview_id -> computed thresholds
+
+GAZE_AWAY_SECONDS_THRESHOLD = 3.0
+
+
+class ViolationTracker:
+    """
+    Tracks proctoring violations per interview:
+    - Multiple faces detected -> immediate violation
+    - No face detected -> immediate violation
+    - Gaze away (not CENTER) sustained for > GAZE_AWAY_SECONDS_THRESHOLD -> violation
+    """
+
+    def __init__(self):
+        # interview_id -> state dict
+        self._state: dict = {}
+
+    def _get_state(self, interview_id: str) -> dict:
+        if interview_id not in self._state:
+            self._state[interview_id] = {
+                "violation_count": 0,
+                "violations": [],          # list of {type, timestamp, detail}
+                "gaze_away_since": None,    # timestamp when gaze-away streak started
+                "multi_face_count": 0,
+                "no_face_count": 0,
+                "gaze_away_count": 0,
+            }
+        return self._state[interview_id]
+
+    def _record(self, interview_id: str, violation_type: str, detail: str = ""):
+        state = self._get_state(interview_id)
+        state["violation_count"] += 1
+        state["violations"].append({
+            "type": violation_type,
+            "detail": detail,
+            "timestamp": time.time(),
+        })
+        print(f"[VIOLATION] interview={interview_id} type={violation_type} detail={detail} total={state['violation_count']}")
+
+    def evaluate(self, interview_id: str, face_count: int, gaze: str) -> dict:
+        state = self._get_state(interview_id)
+        now = time.time()
+        new_violation = None
+
+        # --- Multiple faces ---
+        if face_count > 1:
+            state["multi_face_count"] += 1
+            self._record(interview_id, "MULTIPLE_FACES", f"{face_count} faces detected")
+            new_violation = "MULTIPLE_FACES"
+            # Reset gaze-away streak since this is a separate concern
+            state["gaze_away_since"] = None
+
+        # --- No face ---
+        elif face_count == 0:
+            state["no_face_count"] += 1
+            self._record(interview_id, "NO_FACE", "No face detected in frame")
+            new_violation = "NO_FACE"
+            state["gaze_away_since"] = None
+
+        # --- Single face: check gaze ---
+        else:
+            if gaze != "CENTER" and gaze != "UNKNOWN":
+                if state["gaze_away_since"] is None:
+                    state["gaze_away_since"] = now
+                elif (now - state["gaze_away_since"]) >= GAZE_AWAY_SECONDS_THRESHOLD:
+                    state["gaze_away_count"] += 1
+                    self._record(interview_id, "GAZE_AWAY", f"gaze={gaze} for >= {GAZE_AWAY_SECONDS_THRESHOLD}s")
+                    new_violation = "GAZE_AWAY"
+                    # Reset streak so we don't spam a violation every single frame
+                    state["gaze_away_since"] = now
+            else:
+                state["gaze_away_since"] = None
+
+        return {
+            "violation_count": state["violation_count"],
+            "new_violation": new_violation,
+            "multi_face_count": state["multi_face_count"],
+            "no_face_count": state["no_face_count"],
+            "gaze_away_count": state["gaze_away_count"],
+        }
+
+    def get_summary(self, interview_id: str) -> dict:
+        state = self._get_state(interview_id)
+        return {
+            "interview_id": interview_id,
+            "violation_count": state["violation_count"],
+            "multi_face_count": state["multi_face_count"],
+            "no_face_count": state["no_face_count"],
+            "gaze_away_count": state["gaze_away_count"],
+            "violations": state["violations"],
+        }
+
+    def clear(self, interview_id: str):
+        self._state.pop(interview_id, None)
+
+
+violation_tracker = ViolationTracker()
+
 
 def get_eye_state(result):
 
@@ -131,12 +229,15 @@ async def interview_websocket(websocket: WebSocket):
     await websocket.accept()
     print(" WebSocket accepted")
     
-    session_id = int(websocket.query_params.get("session_id", 0))
-    thresholds = session_thresholds.get(session_id)
+    interview_id = websocket.query_params.get("interview_id")
+    if not interview_id:
+        await websocket.close(code=4000, reason="interview_id is required")
+        return
+    thresholds = session_thresholds.get(interview_id)
     if thresholds:
-        print(f" Using calibrated thresholds for session {session_id}: {thresholds}")
+        print(f" Using calibrated thresholds for interview {interview_id}: {thresholds}")
     else:
-        print(f"  No calibration found for session_id={session_id}, using defaults")
+        print(f"  No calibration found for interview_id={interview_id}, using defaults")
 
     try:
         while True:
@@ -158,10 +259,15 @@ async def interview_websocket(websocket: WebSocket):
                 blendshape_dict = {c.category_name: c.score for c in result.face_blendshapes[0]}
                 gaze = classify_gaze_binary(blendshape_dict, thresholds=thresholds)
                 print(f"Gaze: {gaze}")
+
+            violation_result = violation_tracker.evaluate(interview_id, face_count, gaze)
+
             await websocket.send_json({
                 "face_count": face_count,
                 "face_detected": face_count > 0,
-                "gaze": gaze
+                "gaze": gaze,
+                "violation_count": violation_result["violation_count"],
+                "new_violation": violation_result["new_violation"]
             })
     except WebSocketDisconnect:
         print("Client disconnected")
@@ -169,12 +275,28 @@ async def interview_websocket(websocket: WebSocket):
         print(" WebSocket error:", repr(e))
 
 
+@router.get("/violations/{interview_id}")
+async def get_violation_summary(interview_id: str):
+    return violation_tracker.get_summary(interview_id)
+
+
+@router.delete("/violations/{interview_id}")
+async def clear_violation_summary(interview_id: str):
+    violation_tracker.clear(interview_id)
+    return {"message": f"Violation data cleared for {interview_id}"}
+
+
 @router.websocket("/ws/calibration")
 async def calibration_websocket(websocket: WebSocket):
     await websocket.accept()
-    session_id = id(websocket)
-    calibration_store[session_id] = []
-    print(f"[+] Calibration session started: {session_id}")
+
+    interview_id = websocket.query_params.get("interview_id")
+    if not interview_id:
+        await websocket.close(code=4000, reason="interview_id is required")
+        return
+
+    calibration_store[interview_id] = []
+    print(f"[+] Calibration session started: {interview_id}")
 
     pending_meta = None
 
@@ -206,25 +328,25 @@ async def calibration_websocket(websocket: WebSocket):
                 face_count = len(result.face_landmarks)
                 print("Faces detected:", face_count)
                 blendshape_dict = {c.category_name: c.score for c in result.face_blendshapes[0]}
-                calibration_store[session_id].append(blendshape_dict)
+                calibration_store[interview_id].append(blendshape_dict)
                 gaze = classify_gaze_binary(blendshape_dict)
-                print(f"    [{point_name}] gaze={gaze} ({len(calibration_store[session_id])}/9)")
+                print(f"    [{point_name}] gaze={gaze} ({len(calibration_store[interview_id])}/9)")
 
                 pending_meta = None
 
-                if len(calibration_store[session_id]) == 9:
-                    thresholds = compute_thresholds(calibration_store[session_id])
-                    session_thresholds[session_id] = thresholds
+                if len(calibration_store[interview_id]) == 9:
+                    thresholds = compute_thresholds(calibration_store[interview_id])
+                    session_thresholds[interview_id] = thresholds
                     print(f"[✓] Calibration complete. Thresholds: {thresholds}")
                     await websocket.send_text(json.dumps({
                         "status": "complete",
                         "points_received": 9,
-                        "session_id": str(session_id),
+                        "interview_id": interview_id,
                         "thresholds": thresholds,
                     }))
 
     except WebSocketDisconnect:
-        print(f"[-] Calibration session {session_id} disconnected. Points: {len(calibration_store.get(session_id, []))}")
+        print(f"[-] Calibration session {interview_id} disconnected. Points: {len(calibration_store.get(interview_id, []))}")
     except Exception as e:
         print(f"🔥 Calibration error: {repr(e)}")
 
@@ -232,8 +354,8 @@ async def calibration_websocket(websocket: WebSocket):
 @router.websocket("/ws/transcript")
 async def transcript_websocket(websocket: WebSocket):
     await websocket.accept()
-    session_id = websocket.query_params.get("session_id", "unknown")
-    print(f"[+] Transcript session started: {session_id}")
+    interview_id = websocket.query_params.get("interview_id", "unknown")
+    print(f"[+] Transcript session started: {interview_id}")
 
     try:
         while True:
@@ -256,12 +378,12 @@ async def transcript_websocket(websocket: WebSocket):
 
             print(f"[transcript] {transcript}")
             await websocket.send_json({
-                "session_id": session_id,
+                "interview_id": interview_id,
                 "transcript": transcript,
             })
 
     except WebSocketDisconnect:
-        print(f"[-] Transcript session {session_id} disconnected")
+        print(f"[-] Transcript session {interview_id} disconnected")
     except Exception as e:
         print(f" Transcript error: {repr(e)}")
 
