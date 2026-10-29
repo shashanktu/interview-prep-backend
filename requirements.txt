@@ -15,7 +15,7 @@ azure-ai-transcription
 openai
 
 # Computer Vision / ML
-opencv-python
+opencv-python-headless
 numpy
 mediapipe
 faster-whisper
