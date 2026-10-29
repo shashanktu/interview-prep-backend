@@ -6,12 +6,19 @@ from utils.config import DB_URL
 # Database connection logic here
 def get_db_connection():
     # Example connection logic using SQLAlchemy
-    engine = create_engine(DB_URL)
+    engine = create_engine(
+    DB_URL.replace(
+        "postgresql://",
+        "postgresql+psycopg2://",
+        1
+    ) if DB_URL.startswith("postgresql://") else DB_URL
+)
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine) #NOSONAR
 
     return SessionLocal()
 
 
+ 
 
 Base = declarative_base()
 
