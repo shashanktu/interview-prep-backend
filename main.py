@@ -228,7 +228,7 @@ async def create_interview_candidate(
 ):
     # 1. Upload the resume only if one was provided
     resume_path = None
-
+    print(f"JD URL : {jd_url}")
     if file and file.filename:
         upload_result = await upload_blob(
             file=file,
@@ -266,6 +266,7 @@ async def create_interview_candidate(
         candidate_email=candidate_email,
         role=role,
         jd_name=jd_name,
+        jd_url=jd_url,
         resume_path=resume_path,
     )
 
@@ -286,6 +287,7 @@ async def prepare_interview(
     candidate_email: str,
     role: str,
     jd_name: str,
+    jd_url: str,
     resume_path: str | None,
 ):
     try:
@@ -293,10 +295,13 @@ async def prepare_interview(
         from list_blobs import find_blob_url
         from utils.read_blob import extract_pdf_text
         # 4. Read JD and resume text from Blob Storage
-        url=find_blob_url(jd_name)
-        print(f"JD URL: {url}/n=========================")
+        # print(f"JD Name: {jd_name}")
+        # url=find_blob_url(jd_name)
+        print("==============")
+        print(f"JD URL: {jd_url}")
+        print("==============")
 
-        jd_text = await run_in_threadpool(extract_pdf_text, url)
+        jd_text = await run_in_threadpool(extract_pdf_text, jd_url)
 
         if resume_path:
             resume_text = await run_in_threadpool(extract_pdf_text, resume_path)
