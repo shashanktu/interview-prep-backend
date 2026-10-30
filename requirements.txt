@@ -1,10 +1,24 @@
 fastapi
-uvicorn[standard]
+uvicorn
+pydantic
+python-multipart
+python-dotenv
 sqlalchemy
 psycopg2-binary
-python-dotenv
+bcrypt
+
+# Azure SDKs
 azure-storage-blob
 azure-communication-email
+azure-core
+azure-ai-transcription
 openai
+
+# Computer Vision / ML
+opencv-python-headless
+numpy
+mediapipe
+faster-whisper
+
+# PDF processing
 pymupdf
-python-multipart

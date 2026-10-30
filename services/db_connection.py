@@ -2,26 +2,48 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from models.models import JD, Interview, User, InterviewMetadata
 from utils.config import DB_URL
-
-# Database connection logic here
-def get_db_connection():
-    # Example connection logic using SQLAlchemy
-    engine = create_engine(DB_URL)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine) #NOSONAR
-
-    return SessionLocal()
-
-
-
 Base = declarative_base()
 
-engine = create_engine(DB_URL)
-
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine
+_normalized_url = (
+    DB_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+    if DB_URL.startswith("postgresql://")
+    else DB_URL
 )
+
+engine = create_engine(_normalized_url)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def get_db_connection():
+    return SessionLocal()
+
+# Database connection logic here
+# def get_db_connection():
+#     # Example connection logic using SQLAlchemy
+#     engine = create_engine(
+#     DB_URL.replace(
+#         "postgresql://",
+#         "postgresql+psycopg2://",
+#         1
+#     ) if DB_URL.startswith("postgresql://") else DB_URL
+# )
+#     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine) #NOSONAR
+
+#     return SessionLocal()
+
+
+ 
+
+# Base = declarative_base()
+
+# engine = create_engine(DB_URL)
+
+# SessionLocal = sessionmaker(
+#     autocommit=False,
+#     autoflush=False,
+#     bind=engine
+# )
 
 
 from models.models import JD, Interview, User
