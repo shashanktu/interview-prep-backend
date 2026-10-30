@@ -332,9 +332,10 @@ def _generate_feedback_task(interview_id: str, full_transcription: str):
     try:
         from list_blobs import find_blob_url
         
-        jd_url = get_jd_path(interview_id)
-        print(f"JD URL for interview {interview_id}: {jd_url}")
-        jd = extract_pdf_text(jd_url)
+        result = get_jd_path(interview_id)
+        print(f"JD URL for interview {interview_id}: {result.jd_url}")
+        print(type(result.jd_url))
+        jd = extract_pdf_text(result.jd_url)
         generate_and_save_feedback(interview_id, full_transcription, jd)
 
         insert_metadata(

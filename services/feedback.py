@@ -23,6 +23,9 @@ def generate_and_save_feedback(
             "Feedback generated successfully for %s",
             interview_id,
         )
+        print("================================")
+        print(f"Feedback content for {interview_id}:\n{feedback}")
+        print("================================")
 
     except Exception as e:
         print(f"Error generating feedback for {interview_id}: {str(e)}")

@@ -277,7 +277,7 @@ def get_feedback(transcript: str, jd: str) -> str:
     ## OVERALL ASSESSMENT
 
     Provide an overall assessment that includes:
-    1. A concise summary of the candidate's demonstrated performance.
+    1. A concise summary of the candidate's demonstrated performance under 500 words.
     2. The candidate's strongest relevant technical capabilities.
     3. The most important technical gaps or concerns.
     4. The degree of alignment with the JD.
