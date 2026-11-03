@@ -107,7 +107,6 @@ async def upload_file(
         message="File uploaded successfully",
         role=role,
         filename=file.filename,
-        id=inserted_jd.id,
         url=result['url']
     )
 
@@ -456,3 +455,92 @@ async def get_interview_details(interview_id: str):
     if not interview:
         raise HTTPException(status_code=404, detail="Interview not found")
     return {"interview": interview}
+from typing import List
+
+
+class BulkCandidate(BaseModel):
+    candidate_name: str
+    candidate_email: str
+
+
+class BulkInterviewResponse(BaseModel):
+    message: str
+    total_requested: int
+    created: list[str]      # interview_ids successfully created
+    failed: list[dict]      # [{candidate_email, error}]
+
+
+@app.post("/bulk/interviews", response_model=BulkInterviewResponse)
+async def bulk_create_interviews(
+    background_tasks: BackgroundTasks,
+    user_id: int = Form(...),
+    candidates: str = Form(...),          # JSON string: '[{"candidate_name":"A","candidate_email":"a@x.com"}, ...]'
+    l2_panel: str = Form(...),
+    l2_email: str = Form(...),
+    level: str = Form(...),
+    jd_name: str = Form(...),
+    jd_url: str = Form(...),
+    role: str = Form(...),
+    tsc: str = Form(...),
+):
+    import json as json_lib
+
+    try:
+        candidate_list = json_lib.loads(candidates)
+        parsed_candidates = [BulkCandidate(**c) for c in candidate_list]
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid 'candidates' JSON. Expected a list of {{candidate_name, candidate_email}}. Error: {e}",
+        )
+
+    if not parsed_candidates:
+        raise HTTPException(status_code=400, detail="At least one candidate is required.")
+
+    created_ids: list[str] = []
+    failed: list[dict] = []
+
+    for candidate in parsed_candidates:
+        try:
+            interview = Interview(
+                user_id=user_id,
+                candidate_name=candidate.candidate_name,
+                candidate_email=candidate.candidate_email,
+                role=role,
+                tsc=tsc,
+                l2_panel=l2_panel,
+                l2_email=l2_email,
+                level=level,
+                jd_name=jd_name,
+                jd_url=jd_url,
+                resume_path=None,
+                l1_status="Pending",
+                l2_status="Pending",
+            )
+
+            created_interview = await run_in_threadpool(insert_interview, interview)
+
+            background_tasks.add_task(
+                prepare_interview,
+                interview_id=created_interview.interview_id,
+                candidate_name=candidate.candidate_name,
+                candidate_email=candidate.candidate_email,
+                role=role,
+                jd_name=jd_name,
+                jd_url=jd_url,
+                resume_path=None,
+            )
+
+            created_ids.append(created_interview.interview_id)
+
+        except Exception as e:
+            print(f"Failed to create interview for {candidate.candidate_email}: {e}")
+            failed.append({"candidate_email": candidate.candidate_email, "error": str(e)})
+
+    return BulkInterviewResponse(
+        message="Bulk interview creation processed.",
+        total_requested=len(parsed_candidates),
+        created=created_ids,
+        failed=failed,
+    )
+
