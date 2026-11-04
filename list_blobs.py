@@ -7,7 +7,7 @@ load_dotenv()
 import os
 
 CONTAINER_SAS_URL=os.getenv("CONTAINER_SAS_URL")
-# from utils.config import CONTAINER_SAS_URL
+
 
 def get_files_from_blob(folder_path: str):
 
@@ -44,25 +44,6 @@ def get_files_from_blob(folder_path: str):
 
 
 
-# def get_files_from_blob(folder_path: str):
-
-#     container_client = ContainerClient.from_container_url(
-#         CONTAINER_SAS_URL
-#     )
-
-#     files = []
-
-#     for blob in container_client.list_blobs(
-#         name_starts_with=folder_path
-#     ):
-#         print(vars(blob))
-#         files.append({
-#             "file_name": blob.name.split("/")[-1],
-#             "blob_path": blob.name,
-#             "url": f"{blob}"
-#         })
-
-#     return files
 
 
 from azure.storage.blob import ContainerClient
@@ -83,14 +64,3 @@ def find_blob_url(file_name: str) -> str | None:
     return None
 
 
-
-# print(CONTAINER_SAS_URL)
-# url = find_blob_url(
-#     sas_url=CONTAINER_SAS_URL,
-#     file_name="AI Solutions Architect JD.docx"
-# )
-
-# if url:
-#     print("Blob SAS URL:", url)
-# else:
-#     print("File not found")

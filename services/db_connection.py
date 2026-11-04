@@ -18,32 +18,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def get_db_connection():
     return SessionLocal()
 
-# Database connection logic here
-# def get_db_connection():
-#     # Example connection logic using SQLAlchemy
-#     engine = create_engine(
-#     DB_URL.replace(
-#         "postgresql://",
-#         "postgresql+psycopg2://",
-#         1
-#     ) if DB_URL.startswith("postgresql://") else DB_URL
-# )
-#     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine) #NOSONAR
 
-#     return SessionLocal()
-
-
- 
-
-# Base = declarative_base()
-
-# engine = create_engine(DB_URL)
-
-# SessionLocal = sessionmaker(
-#     autocommit=False,
-#     autoflush=False,
-#     bind=engine
-# )
 
 
 from models.models import JD, Interview, User

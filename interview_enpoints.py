@@ -1,6 +1,7 @@
 import uuid
 import os
-from fastapi import APIRouter,HTTPException, UploadFile, File, WebSocket, WebSocketDisconnect , BackgroundTasks
+from typing import Annotated
+from fastapi import APIRouter,HTTPException, UploadFile, File, Query, WebSocket, WebSocketDisconnect , BackgroundTasks
 from starlette.concurrency import run_in_threadpool
 from list_blobs import find_blob_url
 from utils.upload_files import upload_blob
@@ -34,26 +35,6 @@ async def get_interview_details(interview_id: str):
     result = get_interview_data(interview_id)
     return {"data": result}
 
-# @router.post("/start-interview/{interview_id}")
-# async def start_interview(interview_id: str):
-#     int_status=get_interview_status(interview_id)
-#     if int_status=="Scheduled":
-#         update_interview_status(interview_id=interview_id, status="Active")
-#         #logic to create a temp file 
-#         with open(f"{interview_id}_temp.txt", "w") as temp_file:
-#             temp_file.write("")
-#         return {"message": "Interview started successfully"}
-#     else:
-#         return {"message": "Interview is not in a scheduled state and cannot be started."}
-    
-# @router.post("/end_interview/{interview_id}")
-# async def end_interview(interview_id: str):
-#     int_status=get_interview_status(interview_id)
-#     if int_status=="Active":
-#         update_interview_status(interview_id=interview_id, status="Completed")
-#         return {"message": "Interview ended successfully"}
-#     else:
-#         return {"message": "Interview is not in an active state and cannot be ended."}
 
 @router.post("/get_questions/{interview_id}")
 def get_interview_questions(interview_id):
@@ -66,27 +47,16 @@ def get_interview_questions(interview_id):
             return {"questions": questions}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching interview questions: {str(e)}")
-# async def get_interview_questions(interview_id: str):
-#     result = get_resume_link(interview_id)
-#     result_dict = dict(result._mapping)
-#     print("\n",result_dict)
-    
-#     resume_path = result_dict.get("resume_path")
-#     jd_name = result_dict.get("jd_name")
-#     print(f"Resume path: {resume_path},\n JD name: {jd_name}")
-#     jd_path= find_blob_url(file_name=jd_name)
-#     if not resume_path:
-#         raise HTTPException(status_code=404, detail="Resume not found")
-#     if not jd_path:
-#         raise HTTPException(status_code=404, detail="JD not found")
 
-#     ques=generate_questions(resume_path=resume_path,jd_path=jd_path)
-#     return {"questions": ques}
 
 
 
 @router.post("/upload_selfie/{interview_id}/{candidate_name}")
-async def upload_selfie(interview_id: str, candidate_name: str, file: UploadFile = File(...)):
+async def upload_selfie(
+    interview_id: str,
+    candidate_name: str,
+    file: Annotated[UploadFile, File(...)],
+):
     try:
         int_status=get_interview_status(interview_id)
         if int_status!="Active":
@@ -114,85 +84,41 @@ async def upload_selfie(interview_id: str, candidate_name: str, file: UploadFile
 
 
 
-
-
-# @router.post("/start-interview/{interview_id}")
-# async def start_interview(interview_id: str):
-#     int_status = get_interview_status(interview_id)
-#     if int_status == "Scheduled":
-#         update_interview_status(interview_id=interview_id, status="Active")
-#         with open(f"{interview_id}_temp.txt", "w") as temp_file:
-#             temp_file.write("")
-#         return {"message": "Interview started successfully"}
-#     else:
-#         return {"message": "Interview is not in a scheduled state and cannot be started."}
-
-
-# @router.post("/append_transcription/{interview_id}/")
-# def append_transcription(interview_id: str, question: str, transcription: str):
-#     int_status = get_interview_status(interview_id)
-#     if int_status != "Active":
-#         raise HTTPException(status_code=400, detail="Interview is not active. Cannot append transcription.")
-
-#     temp_file_path = f"{interview_id}_temp.txt"
-#     if not os.path.exists(temp_file_path):
-#         raise HTTPException(status_code=404, detail="Interview session file not found. Did you call /start-interview first?")
-
-#     try:
-#         with open(temp_file_path, "a") as temp_file:
-#             temp_file.write(f"Q: {question}\nA: {transcription}\n\n")
-#         return {"message": "Transcription appended successfully"}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error appending transcription: {str(e)}")
-
-
-# @router.post("/end_interview/{interview_id}")
-# async def end_interview(interview_id: str):
-#     int_status = get_interview_status(interview_id)
-#     if int_status != "Active":
-#         return {"message": "Interview is not in an active state and cannot be ended."}
-
-#     temp_file_path = f"{interview_id}_temp.txt"
-#     full_transcription = ""
-
-#     if os.path.exists(temp_file_path):
-#         with open(temp_file_path, "r") as temp_file:
-#             full_transcription = temp_file.read()
-
-#         interview_metadata = InterviewMetadata(
-#             interview_id=interview_id,
-#             key="full_transcription",
-#             value=full_transcription
-#         )
-#         insert_metadata(interview_metadata)
-
-#         os.remove(temp_file_path)
-
-#     update_interview_status(interview_id=interview_id, status="Completed")
-#     return {"message": "Interview ended successfully"}
+def _write_empty_file(path: str) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("")
 
 
 @router.post("/start-interview/{interview_id}")
 async def start_interview(interview_id: str):
     int_status = get_interview_status(interview_id)
-    
+
     try:
         if int_status == "Scheduled":
-            update_interview(interview_id="112233", status="Active", attempt_date=datetime.datetime.now())
-            update_interview(interview_id=interview_id, status="Active", attempt_date=datetime.datetime.now())
+            await run_in_threadpool(
+                update_interview,
+                interview_id=interview_id,
+                status="Active",
+                attempt_date=datetime.datetime.now(),
+            )
             active_interviews.add(interview_id)  # cache it
-            with open(f"{interview_id}_temp.txt", "w") as temp_file:
-                temp_file.write("")
+            await run_in_threadpool(_write_empty_file, f"{interview_id}_temp.txt")
             return {"message": "Interview started successfully"}
         else:
             raise HTTPException(status_code=400, detail="Interview is not in a scheduled state and cannot be started.")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error starting interview: {str(e)}")
 
 
 
 @router.post("/append_transcription/{interview_id}/")
-def append_transcription(interview_id: str, question: str, transcription: str):
+def append_transcription(
+    interview_id: str,
+    question: Annotated[str, Query(...)],
+    transcription: Annotated[str, Query(...)],
+):
     # No DB call — just check in-memory cache
     if interview_id not in active_interviews:
         raise HTTPException(status_code=400, detail="Interview is not active. Cannot append transcription.")
@@ -207,34 +133,6 @@ def append_transcription(interview_id: str, question: str, transcription: str):
         return {"message": "Transcription appended successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error appending transcription: {str(e)}")
-
-
-# @router.post("/end_interview/{interview_id}")
-# async def end_interview(interview_id: str):
-#     print(f"Active interviews before ending: {active_interviews}")
-#     if interview_id not in active_interviews:
-#         return {"message": "Interview is not in an active state and cannot be ended."}
-
-#     temp_file_path = f"{interview_id}_temp.txt"
-#     full_transcription = ""
-
-#     if os.path.exists(temp_file_path):
-#         with open(temp_file_path, "r") as temp_file:
-#             full_transcription = temp_file.read()
-
-#         interview_metadata = InterviewMetadata(
-#             interview_id=interview_id,
-#             key="full_transcription",
-#             value=full_transcription
-#         )
-#         insert_metadata(interview_metadata)
-
-#         os.remove(temp_file_path)
-
-#     update_interview_status(interview_id=interview_id, status="Completed")
-#     active_interviews.discard(interview_id)  # remove from cache
-#     return {"message": "Interview ended successfully"}
-
 
 
 

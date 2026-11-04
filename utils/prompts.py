@@ -1,5 +1,62 @@
 from services.llm_connection import get_azure_response
 def get_questions(jd, resume):
+    resume_provided = bool(resume and resume.strip())
+
+    if resume_provided:
+        distribution_instructions = """
+    2. Distribute the questions as follows:
+    - Questions 1-5: Based on the Job Description.
+    - Questions 6-10: Based on the candidate's Resume.
+    - Questions 11-20: Practical, real-world questions combining relevant
+        skills from the JD and Resume.
+    """
+        source_rules = """
+    - Questions 1-5 must have source "JD".
+    - Questions 6-10 must have source "Resume".
+    - Questions 11-20 must have source "Combined".
+    """
+        resume_section = f"""
+    CANDIDATE RESUME:
+    {resume}
+    """
+        resume_caveat = """
+    - For resume-based questions, assess the candidate's actual
+        experience without assuming that every resume claim is correct.
+    """
+    else:
+        distribution_instructions = """
+    2. No resume was provided for this candidate. Generate all 20 questions
+    strictly from the Job Description (JD) and the technical topics implied
+    by the skills, tools, and technologies listed in the JD.
+    - First, identify every skill, technology, tool, and concept explicitly
+        mentioned or clearly implied by the JD (e.g., if the JD mentions
+        "Python" and "REST APIs", also cover foundational and practical
+        topics within those areas such as data structures, error handling,
+        API design, authentication, and performance considerations).
+    - Expand coverage to the core topics, sub-skills, and typical real-world
+        scenarios associated with each JD skill, not just a direct rewording
+        of JD sentences.
+    - Do NOT invent, assume, or hallucinate any candidate background,
+        projects, skills, or experience that were not provided.
+    - Do not introduce any technology, tool, or skill that is not mentioned
+        in or reasonably implied by the JD.
+    """
+        source_rules = """
+    - All 20 questions must have source "JD".
+    """
+        resume_section = """
+    CANDIDATE RESUME:
+    Not provided. Do not assume or fabricate any resume details. Base all
+    questions strictly on the Job Description and the technical topics
+    implied by its required skills.
+    """
+        resume_caveat = """
+    - Since no resume was provided, do not reference or assume any
+        candidate-specific experience, projects, or skills. Instead, test
+        the depth of the candidate's knowledge across the skills and
+        topics required by the JD.
+    """
+
     prompt = f"""
     You are an AI technical interview question generator.
 
@@ -9,18 +66,12 @@ def get_questions(jd, resume):
     JOB DESCRIPTION (JD):
     {jd}
 
-    CANDIDATE RESUME:
-    {resume}
+    {resume_section}
 
     QUESTION GENERATION REQUIREMENTS:
 
     1. Generate exactly 20 questions with medium and high difficulty levels.
-
-    2. Distribute the questions as follows:
-    - Questions 1-5: Based on the Job Description.
-    - Questions 6-10: Based on the candidate's Resume.
-    - Questions 11-20: Practical, real-world questions combining relevant
-        skills from the JD and Resume.
+    {distribution_instructions}
 
     3. Include both descriptive and coding questions.
     - Descriptive questions should assess technical understanding,
@@ -52,8 +103,7 @@ def get_questions(jd, resume):
     - Do not ask questions unrelated to the JD or Resume.
     - Do not assume a technology or skill that is not supported by the
         JD or Resume.
-    - For resume-based questions, assess the candidate's actual
-        experience without assuming that every resume claim is correct.
+    {resume_caveat}
 
     7. Question quality:
     - Each question must ask one clear primary question.
@@ -89,9 +139,7 @@ def get_questions(jd, resume):
     - The "questions" field must contain exactly 20 objects.
     - Question numbers must be consecutive integers from 1 to 20.
     - The "source" field must be one of "JD", "Resume", or "Combined".
-    - Questions 1-5 must have source "JD".
-    - Questions 6-10 must have source "Resume".
-    - Questions 11-20 must have source "Combined".
+    {source_rules}
     - The "question_type" field must be either "descriptive" or "coding".
     - The "difficulty" field must be either "medium" or "high".
     - Ensure the distribution contains exactly 8 medium and 12 high
