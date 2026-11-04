@@ -53,7 +53,7 @@ class Interview(Base):
     l2_email = Column(String(255), nullable=True)
     level = Column(String(50), nullable=True)
     jd_name = Column(String(255), nullable=True)
-    resume_path = Column(Text, nullable=False)
+    resume_path = Column(Text, nullable=True)
     l1_status = Column(String(50), nullable=True)
     l1_result = Column(Text, nullable=True)
     l2_status = Column(String(50), nullable=True)
