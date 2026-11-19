@@ -150,7 +150,7 @@ def send_interview_email(
                                     <td align="center"
                                         bgcolor="#1769aa"
                                         style="border-radius: 5px;">
-                                        <a href="{interview_link}"
+                                        <a href="https://happy-pond-0e847a30f.3.azurestaticapps.net/candidate/login"
                                            target="_blank"
                                            style="display: inline-block;
                                                   padding: 14px 30px;
@@ -164,6 +164,16 @@ def send_interview_email(
                                     </td>
                                 </tr>
                             </table>
+
+                            <p style="margin: 0 0 24px; font-size: 14px;
+                                      line-height: 1.8; text-align: center;">
+                                If the button does not work, open the interview portal:
+                                <a href="https://happy-pond-0e847a30f.3.azurestaticapps.net/candidate/login"
+                                   target="_blank"
+                                   style="color: #1769aa;">
+                                    https://happy-pond-0e847a30f.3.azurestaticapps.net/candidate/login
+                                </a>
+                            </p>
 
                             <!-- Interview Details -->
                             <h2 style="margin: 0 0 14px; font-size: 17px;

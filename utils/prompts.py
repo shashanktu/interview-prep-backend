@@ -82,8 +82,10 @@ def get_questions(jd, resume):
         relevant programming languages and technical skills.
 
     4. Difficulty distribution:
-    - 8 medium-difficulty questions.
+    - 2 Easy-Medium questions.
+    - 4 medium-difficulty questions.
     - 12 high-difficulty questions.
+    - 2 extremely challenging questions that require deep technical knowledge, practical experience, and problem-solving skills.
 
     5. Question types:
     - Include descriptive and coding questions.
@@ -142,7 +144,7 @@ def get_questions(jd, resume):
     {source_rules}
     - The "question_type" field must be either "descriptive" or "coding".
     - The "difficulty" field must be either "medium" or "high".
-    - Ensure the distribution contains exactly 8 medium and 12 high
+    - Ensure the distribution contains exactly 2 easy, 4 medium, and 14 high
         difficulty questions.
     - Escape quotation marks and special characters correctly.
     - Ensure the output is parseable using Python's json.loads().
